@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'package:yok_travel/api_connection/api_connection.dart';
 import 'dart:convert';
 
-
 class RegisterPage extends StatefulWidget {
   final double horizontalPadding;
 
@@ -15,7 +14,6 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -25,8 +23,8 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _isEmailFocused = false;
   bool _isPasswordFocused = false;
   bool _isRePasswordFocused = false;
-  bool _isPressed = false;
-  double _buttonOpacity = 1.0; // Opacity untuk tombol
+  bool _isLoading = false; // State for loading indicator
+  String? _errorMessage; // State for error message
 
   @override
   void dispose() {
@@ -34,64 +32,48 @@ class _RegisterPageState extends State<RegisterPage> {
     _emailController.dispose();
     _passwordController.dispose();
     _rePasswordController.dispose();
-
     super.dispose();
   }
 
-  void _handleRegister() async {
+  Future<void> _handleRegister() async {
     String user_name = _usernameController.text;
     String user_email = _emailController.text;
     String user_password = _passwordController.text;
     String userRePassword = _rePasswordController.text.trim();
 
     setState(() {
-      _isPressed = true;
-      _buttonOpacity = 0.0; // Ubah opacity menjadi 0
+      _isLoading = true;
+      _errorMessage = null; // Reset error message before processing
     });
 
     // Validation checks
     if (user_name.isEmpty || user_email.isEmpty || user_password.isEmpty || userRePassword.isEmpty) {
-      _showError('Ada yang masih kosong!');
-
-      // Pastikan tombol kembali aktif setelah validasi gagal
       setState(() {
-        _isPressed = false;
-        _buttonOpacity = 1.0; // Kembalikan opacity menjadi 1
+        _errorMessage = 'Ada yang masih kosong!';
+        _isLoading = false; // Stop loading if validation fails
       });
-
-      return;  // Jangan lupa return untuk menghentikan eksekusi lebih lanjut
+      return;
     }
 
     if (user_password != userRePassword) {
-      _showError('Passwords tidak cocok!.');
-
-      // Pastikan tombol kembali aktif setelah validasi gagal
       setState(() {
-        _isPressed = false;
-        _buttonOpacity = 1.0; // Kembalikan opacity menjadi 1
+        _errorMessage = 'Passwords tidak cocok!';
+        _isLoading = false; // Stop loading if validation fails
       });
-
-      return;  // Jangan lupa return untuk menghentikan eksekusi lebih lanjut
+      return;
     }
-
-    print('Username: $user_name');
-    print('Email: $user_email');
-    print('Password: $user_password');
-
-    // Setelah 2 detik, kembalikan tombol ke keadaan semula
-    setState(() {
-      _isPressed = false;
-      _buttonOpacity = 1.0; // Kembalikan opacity menjadi 1
-    });
 
     // Send data to the PHP script
     final url = Uri.parse(API.signUp);
     try {
-      final response = await http.post(url, body: {
-        'user_email': user_email,
-        'user_name': user_name,
-        'user_password': user_password,
-      });
+      final response = await http.post(
+        url,
+        body: {
+          'user_email': user_email,
+          'user_name': user_name,
+          'user_password': user_password,
+        },
+      );
 
       final responseData = jsonDecode(response.body);
 
@@ -99,23 +81,19 @@ class _RegisterPageState extends State<RegisterPage> {
         _showSuccess('Registration successful!');
         Navigator.pushNamed(context, '/login');
       } else {
-        _showError('Registration failed: ${responseData['error']}');
+        setState(() {
+          _errorMessage = 'Registration failed: ${responseData['error']}';
+        });
       }
     } catch (error) {
-      _showError('An error occurred: $error');
+      setState(() {
+        _errorMessage = 'An error occurred: $error';
+      });
     } finally {
       setState(() {
-        _isPressed = false;
-        _buttonOpacity = 1.0; // Pastikan opacity kembali ke 1 di sini
+        _isLoading = false; // Ensure loading stops after response
       });
     }
-  }
-
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message, style: TextStyle(color: Colors.red))),
-    );
   }
 
   void _showSuccess(String message) {
@@ -170,272 +148,103 @@ class _RegisterPageState extends State<RegisterPage> {
 
                         const SizedBox(height: 10),
 
-                        // Username field with drop shadow and active effect
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: widget.horizontalPadding),
-                          child: FocusScope(
-                            onFocusChange: (isFocused) {
-                              setState(() {
-                                _isUsernameFocused = isFocused;
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(27),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 10,
-                                    offset: Offset(0, 5),
-                                  ),
-                                ],
-                                border: Border.all(
-                                  color: _isUsernameFocused
-                                      ? Colors.blue
-                                      : Colors.transparent,
-                                  width: 2,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Image.asset(
-                                    'assets/username.png',
-                                    height: 24,
-                                    width: 24,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _usernameController,
-                                      decoration: InputDecoration(
-                                        hintText: 'username',
-                                        hintStyle: GoogleFonts.aBeeZee(
-                                          fontSize: 16,
-                                          color: Colors.black38,
-                                        ),
-                                        border: InputBorder.none,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                        // Username field
+                        _buildInputField(
+                          hintText: 'username',
+                          controller: _usernameController,
+                          isFocused: _isUsernameFocused,
+                          assetName: 'assets/username.png', // Menentukan gambar username
+                          onFocusChange: (isFocused) {
+                            setState(() {
+                              _isUsernameFocused = isFocused;
+                            });
+                          },
                         ),
                         const SizedBox(height: 10),
 
-                        // Email field with drop shadow and active effect
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: widget.horizontalPadding),
-                          child: FocusScope(
-                            onFocusChange: (isFocused) {
-                              setState(() {
-                                _isEmailFocused = isFocused;
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(27),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 10,
-                                    offset: Offset(0, 5),
-                                  ),
-                                ],
-                                border: Border.all(
-                                  color: _isEmailFocused
-                                      ? Colors.blue
-                                      : Colors.transparent,
-                                  width: 2,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Image.asset(
-                                    'assets/email.png',
-                                    height: 24,
-                                    width: 24,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _emailController,
-                                      decoration: InputDecoration(
-                                        hintText: 'email',
-                                        hintStyle: GoogleFonts.aBeeZee(
-                                          fontSize: 16,
-                                          color: Colors.black38,
-                                        ),
-                                        border: InputBorder.none,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                        // Email field
+                        _buildInputField(
+                          hintText: 'email',
+                          controller: _emailController,
+                          isFocused: _isEmailFocused,
+                          assetName: 'assets/email.png', // Menentukan gambar email
+                          onFocusChange: (isFocused) {
+                            setState(() {
+                              _isEmailFocused = isFocused;
+                            });
+                          },
                         ),
                         const SizedBox(height: 10),
 
-                        // Password field with drop shadow and active effect
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: widget.horizontalPadding),
-                          child: FocusScope(
-                            onFocusChange: (isFocused) {
-                              setState(() {
-                                _isPasswordFocused = isFocused;
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(27),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 10,
-                                    offset: Offset(0, 5),
-                                  ),
-                                ],
-                                border: Border.all(
-                                  color: _isPasswordFocused
-                                      ? Colors.blue
-                                      : Colors.transparent,
-                                  width: 2,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Image.asset(
-                                    'assets/password.png',
-                                    height: 24,
-                                    width: 24,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _passwordController,
-                                      decoration: InputDecoration(
-                                        hintText: 'password',
-                                        hintStyle: GoogleFonts.aBeeZee(
-                                          fontSize: 16,
-                                          color: Colors.black38,
-                                        ),
-                                        border: InputBorder.none,
-                                      ),
-                                      obscureText: true,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                        // Password field
+                        _buildInputField(
+                          hintText: 'password',
+                          controller: _passwordController,
+                          isFocused: _isPasswordFocused,
+                          assetName: 'assets/password.png', // Menentukan gambar password
+                          obscureText: true,
+                          onFocusChange: (isFocused) {
+                            setState(() {
+                              _isPasswordFocused = isFocused;
+                            });
+                          },
                         ),
                         const SizedBox(height: 10),
 
-                        // Re-Password field with drop shadow and active effect
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: widget.horizontalPadding),
-                          child: FocusScope(
-                            onFocusChange: (isFocused) {
-                              setState(() {
-                                _isRePasswordFocused = isFocused;
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(27),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 10,
-                                    offset: Offset(0, 5),
-                                  ),
-                                ],
-                                border: Border.all(
-                                  color: _isRePasswordFocused
-                                      ? Colors.blue
-                                      : Colors.transparent,
-                                  width: 2,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Image.asset(
-                                    'assets/password.png',
-                                    height: 24,
-                                    width: 24,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _rePasswordController,
-                                      decoration: InputDecoration(
-                                        hintText: 're-password',
-                                        hintStyle: GoogleFonts.aBeeZee(
-                                          fontSize: 16,
-                                          color: Colors.black38,
-                                        ),
-                                        border: InputBorder.none,
-                                      ),
-                                      obscureText: true,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                        // Re-Password field
+                        _buildInputField(
+                          hintText: 're-password',
+                          controller: _rePasswordController,
+                          isFocused: _isRePasswordFocused,
+                          assetName: 'assets/password.png', // Menentukan gambar re-password
+                          obscureText: true,
+                          onFocusChange: (isFocused) {
+                            setState(() {
+                              _isRePasswordFocused = isFocused;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Display error message
+                        if (_errorMessage != null) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Text(
+                              _errorMessage!,
+                              style: TextStyle(color: Colors.red),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 50),
+                        ],
 
-                        // Register button with opacity animation
-                        Padding(
+                        // Register button with loading state
+                        _isLoading
+                            ? Center(
+                          child: CircularProgressIndicator(),
+                        )
+                            : Padding(
                           padding: EdgeInsets.symmetric(horizontal: widget.horizontalPadding),
                           child: GestureDetector(
-                            onTapDown: (_) {
-                              setState(() {
-                                _isPressed = true;
-                              });
-                            },
-                            onTapUp: (_) {
-                              _handleRegister(); // Menangani register setelah tombol ditekan
-                            },
-                            onTapCancel: () {
-                              setState(() {
-                                _isPressed = false;
-                              });
-                            },
-                            child: AnimatedOpacity(
-                              duration: Duration(seconds: 2), // Durasi perubahan opacity
-                              opacity: _buttonOpacity, // Menggunakan opacity yang diatur
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: _isPressed ? Colors.blue[200] : Colors.black,
-                                  borderRadius: BorderRadius.circular(24),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.3),
-                                      blurRadius: 10,
-                                      offset: Offset(0, 5),
-                                    ),
-                                  ],
-                                ),
-                                padding: EdgeInsets.symmetric(horizontal: 120, vertical: 16),
-                                child: Center(
-                                  child: Text(
-                                    'Daftar',
-                                    style: GoogleFonts.aBeeZee(
-                                      fontSize: 16,
-                                      color: Colors.white,
-                                    ),
+                            onTap: _handleRegister,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black,
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    blurRadius: 10,
+                                    offset: Offset(0, 5),
+                                  ),
+                                ],
+                              ),
+                              padding: EdgeInsets.symmetric(horizontal: 120, vertical: 16),
+                              child: Center(
+                                child: Text(
+                                  'Daftar',
+                                  style: GoogleFonts.aBeeZee(
+                                    fontSize: 16,
+                                    color: Colors.white,
                                   ),
                                 ),
                               ),
@@ -458,6 +267,61 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputField({
+    required String hintText,
+    required TextEditingController controller,
+    required bool isFocused,
+    required String assetName, // Menambahkan parameter assetName
+    required void Function(bool) onFocusChange,
+    bool obscureText = false,
+  }) {
+    return FocusScope(
+      onFocusChange: onFocusChange,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(27),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: Offset(0, 5),
+            ),
+          ],
+          border: Border.all(
+            color: isFocused ? Colors.blue : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Image.asset(
+              assetName, // Menampilkan gambar yang sesuai
+              height: 24,
+              width: 24,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  hintText: hintText,
+                  hintStyle: GoogleFonts.aBeeZee(
+                    fontSize: 16,
+                    color: Colors.black38,
+                  ),
+                  border: InputBorder.none,
+                ),
+                obscureText: obscureText,
+              ),
+            ),
+          ],
         ),
       ),
     );

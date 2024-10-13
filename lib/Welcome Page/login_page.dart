@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:yok_travel/api_connection/api_connection.dart';
 
 class LoginPage extends StatefulWidget {
   final double horizontalPadding;
@@ -18,6 +21,8 @@ class _LoginPageState extends State<LoginPage> {
   bool _isPasswordFocused = false;
   bool _isPressed = false;
   double _buttonOpacity = 1.0; // Opacity untuk tombol
+  bool _isLoading = false; // State untuk indikator loading
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -26,26 +31,60 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _handleLogin() async {
-    String username = _usernameController.text;
-    String password = _passwordController.text;
+  Future<void> _handleLogin() async {
+    String user_name = _usernameController.text;
+    String user_password = _passwordController.text;
 
-    print('Username: $username');
-    print('Password: $password');
-
-    // Mulai animasi menghilangkan tombol selama 2 detik
-    setState(() {
-      _isPressed = true;
-      _buttonOpacity = 0.0; // Ubah opacity menjadi 0
-    });
-
-    // Setelah 2 detik, kembalikan tombol ke keadaan semula
-    Future.delayed(Duration(milliseconds: 800), () {
+    // Validasi input
+    if (user_name.isEmpty || user_password.isEmpty) {
       setState(() {
-        _isPressed = false;
-        _buttonOpacity = 1.0; // Kembalikan opacity menjadi 1
+        _errorMessage = "Username dan password tidak boleh kosong.";
       });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
     });
+
+    // Kirim data ke backend (sesuaikan dengan alamat server)
+    final url = Uri.parse(API.logIn); // Ganti URL dengan backend Anda
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'user_name': user_name,
+          'user_password': user_password,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success']) {
+          // Jika login berhasil
+          print('Login sukses: ${data['user_full_name']}');
+        } else {
+          // Jika username/password salah
+          setState(() {
+            _errorMessage = "Username atau password salah!";
+          });
+        }
+      } else {
+        setState(() {
+          _errorMessage = "Username atau password salah!";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = "Terjadi kesalahan pada jaringan.";
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -87,118 +126,20 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 80),
 
-                        // Username field with drop shadow and active effect
+                        // Username field
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: widget.horizontalPadding),
-                          child: FocusScope(
-                            onFocusChange: (isFocused) {
-                              setState(() {
-                                _isUsernameFocused = isFocused;
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(27),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 10,
-                                    offset: Offset(0, 5),
-                                  ),
-                                ],
-                                border: Border.all(
-                                  color: _isUsernameFocused
-                                      ? Colors.blue
-                                      : Colors.transparent,
-                                  width: 2,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Image.asset(
-                                    'assets/username.png',
-                                    height: 24,
-                                    width: 24,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _usernameController,
-                                      decoration: InputDecoration(
-                                        hintText: 'username',
-                                        hintStyle: GoogleFonts.aBeeZee(
-                                          fontSize: 16,
-                                          color: Colors.black38,
-                                        ),
-                                        border: InputBorder.none,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                          child: _buildInputField(
+                              context, 'username', _usernameController, _isUsernameFocused),
                         ),
                         const SizedBox(height: 10),
 
-                        // Password field with drop shadow and active effect
+                        // Password field
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: widget.horizontalPadding),
-                          child: FocusScope(
-                            onFocusChange: (isFocused) {
-                              setState(() {
-                                _isPasswordFocused = isFocused;
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(21),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 10,
-                                    offset: Offset(0, 5),
-                                  ),
-                                ],
-                                border: Border.all(
-                                  color: _isPasswordFocused
-                                      ? Colors.blue
-                                      : Colors.transparent,
-                                  width: 2,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Image.asset(
-                                    'assets/password.png',
-                                    height: 24,
-                                    width: 24,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _passwordController,
-                                      decoration: InputDecoration(
-                                        hintText: 'password',
-                                        hintStyle: GoogleFonts.aBeeZee(
-                                          fontSize: 16,
-                                          color: Colors.black38,
-                                        ),
-                                        border: InputBorder.none,
-                                      ),
-                                      obscureText: true,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                          child: _buildInputField(
+                              context, 'password', _passwordController, _isPasswordFocused, obscureText: true),
                         ),
-
                         const SizedBox(height: 0),
 
                         Align(
@@ -217,6 +158,17 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                         ),
+
+                        // Display error message
+                        if (_errorMessage != null) ...[
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Text(
+                              _errorMessage!,
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          )
+                        ],
 
                         // Login button with opacity animation
                         Padding(
@@ -252,7 +204,12 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                                 padding: EdgeInsets.symmetric(horizontal: 120, vertical: 16),
                                 child: Center(
-                                  child: Text(
+                                  child: _isLoading
+                                      ? CircularProgressIndicator(
+                                    valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                                  )
+                                      : Text(
                                     'Masuk',
                                     style: GoogleFonts.aBeeZee(
                                       fontSize: 16,
@@ -297,17 +254,72 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   Positioned(
                     top: screenHeight * 0.6,
-                    left: screenWidth * 0.2, // Responsif posisi horizontal
+                    left: screenWidth * 0.2,
                     child: Container(
-                      width: screenWidth * 0.85, // Responsif ukuran lebar gambar
-                      height: screenHeight * 0.45, // Responsif ukuran tinggi gambar
-                      child: Image.asset('assets/camping.png'), // Gambar pertama
+                      width: screenWidth * 0.85,
+                      height: screenHeight * 0.45,
+                      child: Image.asset('assets/camping.png'), // Gambar untuk halaman login
                     ),
                   ),
+
                 ],
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputField(BuildContext context, String hintText, TextEditingController controller,
+      bool isFocused, {bool obscureText = false}) {
+    return FocusScope(
+      onFocusChange: (isFocused) {
+        setState(() {
+          if (hintText == 'username') _isUsernameFocused = isFocused;
+          if (hintText == 'password') _isPasswordFocused = isFocused;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(27),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: Offset(0, 5),
+            ),
+          ],
+          border: Border.all(
+            color: isFocused ? Colors.blue : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Image.asset(
+              'assets/$hintText.png',
+              height: 24,
+              width: 24,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                decoration: InputDecoration(
+                  hintText: hintText,
+                  hintStyle: GoogleFonts.aBeeZee(
+                    fontSize: 16,
+                    color: Colors.black38,
+                  ),
+                  border: InputBorder.none,
+                ),
+                obscureText: obscureText,
+              ),
+            ),
+          ],
         ),
       ),
     );
